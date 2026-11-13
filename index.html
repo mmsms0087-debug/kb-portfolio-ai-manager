@@ -1,0 +1,282 @@
+
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KB Portfolio AI Manager</title>
+<style>
+*{box-sizing:border-box}
+body{
+  margin:0;
+  padding:20px;
+  background:#f1f4f9;
+  color:#17243b;
+  font-family:Arial,sans-serif;
+}
+header{
+  background:#173c78;
+  color:white;
+  padding:24px;
+  border-radius:14px;
+}
+header h1{margin:0 0 8px;font-size:25px}
+header p{margin:0;color:#d8e5ff}
+h2{font-size:19px;margin-top:25px}
+.cards{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(145px,1fr));
+  gap:12px;
+  margin-top:20px;
+}
+.card{
+  background:white;
+  padding:18px;
+  border-radius:12px;
+  box-shadow:0 2px 8px #0000000c;
+}
+.card p{color:#64748b;font-size:13px}
+.value{font-size:22px;font-weight:bold}
+form,.panel{
+  background:white;
+  padding:18px;
+  border-radius:12px;
+  margin-top:15px;
+}
+input{
+  width:100%;
+  padding:13px;
+  margin:7px 0 12px;
+  border:1px solid #ccd5e2;
+  border-radius:7px;
+  font-size:15px;
+}
+button{
+  background:#17458b;
+  color:white;
+  border:0;
+  padding:13px 18px;
+  border-radius:7px;
+  cursor:pointer;
+  font-size:14px;
+}
+.delete{background:#dc4545;padding:8px 11px}
+table{
+  width:100%;
+  border-collapse:collapse;
+  font-size:13px;
+  min-width:540px;
+}
+th,td{
+  padding:12px 8px;
+  text-align:right;
+  border-bottom:1px solid #e5eaf0;
+}
+th:first-child,td:first-child{text-align:left}
+.table-wrap{overflow-x:auto}
+.positive{color:#e04444}
+.negative{color:#2563c7}
+footer{
+  text-align:center;
+  color:#8290a5;
+  margin:30px 0;
+  font-size:12px;
+}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>KB Portfolio AI Manager</h1>
+  <p>스마트 자산관리 · AI 투자 포트폴리오</p>
+  <p id="today"></p>
+</header>
+
+<div class="cards">
+  <div class="card">
+    <p>총 투자 원금</p>
+    <div class="value" id="invested">0원</div>
+  </div>
+  <div class="card">
+    <p>총 평가 금액</p>
+    <div class="value" id="total">0원</div>
+  </div>
+  <div class="card">
+    <p>총 손익</p>
+    <div class="value" id="profit">0원</div>
+  </div>
+  <div class="card">
+    <p>수익률</p>
+    <div class="value" id="rate">0%</div>
+  </div>
+</div>
+
+<h2>📊 투자 종목 등록</h2>
+<form id="assetForm">
+  <label>종목명</label>
+  <input id="name" placeholder="예: 삼성전자, KODEX 200" required>
+
+  <label>투자 원금 (원)</label>
+  <input id="cost" type="number" min="1" placeholder="예: 1000000" required>
+
+  <label>현재 평가 금액 (원)</label>
+  <input id="current" type="number" min="0" placeholder="예: 1100000" required>
+
+  <button type="submit">+ 종목 등록하기</button>
+</form>
+
+<h2>📈 나의 포트폴리오</h2>
+<div class="panel">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>종목명</th>
+          <th>투자원금</th>
+          <th>평가금액</th>
+          <th>손익</th>
+          <th>수익률</th>
+          <th>삭제</th>
+        </tr>
+      </thead>
+      <tbody id="assetList"></tbody>
+    </table>
+  </div>
+  <p id="empty">등록된 투자 종목이 없습니다.</p>
+</div>
+
+<h2>🤖 AI 투자 분석</h2>
+<div class="panel">
+  <p id="analysis">
+    투자 종목을 등록하면 포트폴리오의 수익 현황을 분석합니다.
+  </p>
+  <button onclick="analyze()">포트폴리오 분석하기</button>
+</div>
+
+<footer>
+  KB Portfolio AI Manager v1.0<br>
+  투자 판단을 위한 참고용 도구입니다.
+</footer>
+
+<script>
+let assets = [];
+try {
+  assets = JSON.parse(
+    localStorage.getItem("kbAssets") || "[]"
+  );
+} catch(e) {
+  assets = [];
+}
+
+const money = n =>
+  Math.round(n).toLocaleString("ko-KR") + "원";
+
+function save(){
+  localStorage.setItem("kbAssets",JSON.stringify(assets));
+}
+
+function render(){
+  let invested=0,total=0;
+  const list=document.getElementById("assetList");
+  list.innerHTML="";
+
+  assets.forEach((a,i)=>{
+    invested+=a.cost;
+    total+=a.current;
+    const profit=a.current-a.cost;
+    const rate=profit/a.cost*100;
+
+    const tr=document.createElement("tr");
+    const values=[
+      a.name,
+      money(a.cost),
+      money(a.current),
+      money(profit),
+      rate.toFixed(2)+"%"
+    ];
+
+    values.forEach((v,j)=>{
+      const td=document.createElement("td");
+      td.textContent=v;
+      if(j>=3) td.className=profit>=0?"positive":"negative";
+      tr.appendChild(td);
+    });
+
+    const td=document.createElement("td");
+    const btn=document.createElement("button");
+    btn.textContent="삭제";
+    btn.className="delete";
+    btn.onclick=()=>removeAsset(i);
+    td.appendChild(btn);
+    tr.appendChild(td);
+    list.appendChild(tr);
+  });
+
+  const profit=total-invested;
+  const rate=invested?profit/invested*100:0;
+
+  document.getElementById("invested").textContent=money(invested);
+  document.getElementById("total").textContent=money(total);
+  document.getElementById("profit").textContent=money(profit);
+  document.getElementById("rate").textContent=rate.toFixed(2)+"%";
+  document.getElementById("profit").className="value "+(profit>=0?"positive":"negative");
+  document.getElementById("rate").className="value "+(rate>=0?"positive":"negative");
+  document.getElementById("empty").style.display=assets.length?"none":"block";
+}
+
+document.getElementById("assetForm").onsubmit=e=>{
+  e.preventDefault();
+
+  const name=document.getElementById("name").value.trim();
+  const cost=Number(document.getElementById("cost").value);
+  const current=Number(document.getElementById("current").value);
+
+  if(!name || cost<=0 || current<0){
+    alert("입력 내용을 확인해 주세요.");
+    return;
+  }
+
+  assets.push({name,cost,current});
+  save();
+  render();
+  e.target.reset();
+};
+
+function removeAsset(i){
+  if(confirm("이 종목을 삭제하시겠습니까?")){
+    assets.splice(i,1);
+    save();
+    render();
+  }
+}
+
+function analyze(){
+  if(!assets.length){
+    alert("먼저 투자 종목을 등록해 주세요.");
+    return;
+  }
+
+  const invested=assets.reduce((s,a)=>s+a.cost,0);
+  const total=assets.reduce((s,a)=>s+a.current,0);
+  const rate=(total-invested)/invested*100;
+
+  let message="현재 포트폴리오 분석 결과입니다. ";
+  if(rate>0){
+    message+="전체 수익률은 "+rate.toFixed(2)+"%입니다. 현재 평가금액이 투자원금을 웃돌고 있습니다.";
+  }else if(rate<0){
+    message+="전체 수익률은 "+rate.toFixed(2)+"%입니다. 투자 위험과 자산 배분을 점검해 보세요.";
+  }else{
+    message+="현재 손익은 0%입니다.";
+  }
+
+  message+=" 종목별 비중과 시장 상황도 함께 확인하세요.";
+  document.getElementById("analysis").textContent=message;
+}
+
+document.getElementById("today").textContent=
+  "기준일: "+new Date().toLocaleDateString("ko-KR");
+
+render();
+</script>
+</body>
+</html>
